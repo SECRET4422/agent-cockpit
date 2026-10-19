@@ -1,0 +1,39 @@
+{
+  "name": "agent-cockpit",
+  "version": "1.0.0",
+  "description": "🚀 Real-time visual telemetry HUD & circuit breaker for AI coding agents (Cursor, Claude Code, OpenMausBot, Aider)",
+  "main": "dist/src/index.js",
+  "type": "module",
+  "bin": {
+    "agent-cockpit": "bin/agent-cockpit.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "prepare": "tsc",
+    "start": "node bin/agent-cockpit.js",
+    "dev": "tsc -w",
+    "test": "node --test dist/tests/*.test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SECRET4422/agent-cockpit.git"
+  },
+  "keywords": [
+    "ai-agent",
+    "telemetry",
+    "hud",
+    "loopbreaker",
+    "mcp",
+    "cursor",
+    "claude-code",
+    "observability",
+    "guardrails",
+    "circuit-breaker"
+  ],
+  "author": "Prabhakar Pal <vikashpal7888@gmail.com> (https://alphatech.studio)",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2"
+  }
+}

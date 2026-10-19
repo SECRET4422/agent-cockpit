@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgentCockpit — Real-Time Visual Telemetry & Circuit Breaker for AI Agents</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="cockpit-container">
+    <!-- TOP NAVIGATION BAR -->
+    <header class="cockpit-header">
+      <div class="brand">
+        <div class="radar-dot"></div>
+        <div class="brand-text">
+          <h1>AGENT COCKPIT <span class="version-tag">v1.0.0</span></h1>
+          <p class="brand-sub">Autonomous Telemetry & LoopBreaker Radar · AlphaTech Studio</p>
+        </div>
+      </div>
+
+      <div class="header-center">
+        <div class="flight-status-badge" id="flightStatusBadge">
+          <span class="pulse-indicator"></span>
+          <span id="flightStatusText">IDLE · STANDBY</span>
+        </div>
+        <div class="uptime-badge">
+          <span class="label">UPTIME</span>
+          <span class="value" id="uptimeText">00:00:00</span>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <button id="simBtn" class="btn btn-secondary">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+          <span id="simBtnText">Simulate Flight</span>
+        </button>
+        <button id="killswitchBtn" class="btn btn-danger">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>
+          <span id="killswitchText">EMERGENCY TRIP</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- EMERGENCY ALERT BANNER (Visible when Breaker Tripped) -->
+    <div id="emergencyBanner" class="emergency-banner hidden">
+      <div class="banner-content">
+        <div class="warning-icon">🚨</div>
+        <div class="warning-details">
+          <h3>CIRCUIT BREAKER TRIPPED — AGENT FLIGHT FROZEN</h3>
+          <p id="emergencyReason">Runaway recursive loop pattern detected.</p>
+        </div>
+      </div>
+      <button id="resetBreakerBtn" class="btn btn-warning">Reset & Resume Flight</button>
+    </div>
+
+    <!-- METRICS GRID -->
+    <section class="metrics-grid">
+      <!-- 1. Loop Risk Meter -->
+      <div class="metric-card risk-card">
+        <div class="metric-header">
+          <span class="metric-title">LOOP RISK RADAR</span>
+          <span class="metric-badge" id="riskBadge">NOMINAL</span>
+        </div>
+        <div class="risk-display">
+          <div class="risk-number-box">
+            <span class="risk-val" id="riskValue">0</span>
+            <span class="risk-percent">%</span>
+          </div>
+          <div class="meter-bar-container">
+            <div class="meter-bar" id="riskBar" style="width: 0%;"></div>
+          </div>
+        </div>
+        <div class="metric-footnote" id="riskFootnote">Sliding window: 0 recursive patterns detected</div>
+      </div>
+
+      <!-- 2. Token Velocity -->
+      <div class="metric-card">
+        <div class="metric-header">
+          <span class="metric-title">BURN VELOCITY</span>
+          <span class="metric-badge info">REAL-TIME</span>
+        </div>
+        <div class="metric-value-box">
+          <span class="value-large" id="burnRateVal">$0.00</span>
+          <span class="value-unit">/min</span>
+        </div>
+        <div class="metric-footnote" id="tokenRateFootnote">0 tokens / sec</div>
+      </div>
+
+      <!-- 3. Total Session Cost -->
+      <div class="metric-card">
+        <div class="metric-header">
+          <span class="metric-title">SESSION TOKENS</span>
+          <span class="metric-badge">CUMULATIVE</span>
+        </div>
+        <div class="metric-value-box">
+          <span class="value-large" id="totalTokensVal">0</span>
+          <span class="value-unit" id="totalCostVal">($0.000)</span>
+        </div>
+        <div class="metric-footnote" id="tokenSplitFootnote">In: 0 · Out: 0</div>
+      </div>
+
+      <!-- 4. Active Target & Files -->
+      <div class="metric-card">
+        <div class="metric-header">
+          <span class="metric-title">ACTIVE AGENT</span>
+          <span class="metric-badge active" id="activeAgentBadge">CONNECTED</span>
+        </div>
+        <div class="metric-value-box">
+          <span class="agent-name-display" id="activeAgentName">Claude 3.5 Sonnet</span>
+        </div>
+        <div class="metric-footnote" id="filesMutatedFootnote">0 files modified</div>
+      </div>
+    </section>
+
+    <!-- MAIN BODY SPLIT -->
+    <main class="cockpit-main">
+      <!-- LEFT: Live Flight Telemetry Stream -->
+      <section class="stream-panel">
+        <div class="panel-header">
+          <div class="panel-title-box">
+            <h2>FLIGHT EVENT STREAM</h2>
+            <span class="event-counter" id="eventCounter">0 Events</span>
+          </div>
+          <div class="filter-pills">
+            <button class="pill active" data-filter="all">All</button>
+            <button class="pill" data-filter="tool_call">Tools</button>
+            <button class="pill" data-filter="thought">Thoughts</button>
+            <button class="pill" data-filter="file_mutation">Diffs</button>
+            <button class="pill" data-filter="breaker">Alerts</button>
+          </div>
+        </div>
+
+        <div class="events-feed" id="eventsFeed">
+          <div class="feed-empty-state">
+            <div class="empty-icon">🛰️</div>
+            <p>Awaiting agent flight telemetry telemetry...</p>
+            <span class="subtext">Click <b>"Simulate Flight"</b> to preview a live agent loop interception.</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- RIGHT: Radar Stack & Mutated Files -->
+      <aside class="radar-panel">
+        <!-- Call Stack Radar -->
+        <div class="sub-panel">
+          <div class="sub-header">
+            <h3>CALL RECURRENCE RADAR</h3>
+            <span class="pulse-radar"></span>
+          </div>
+          <div class="radar-stack" id="radarStack">
+            <div class="radar-empty">Zero recursive calls in window</div>
+          </div>
+        </div>
+
+        <!-- Files Touched -->
+        <div class="sub-panel">
+          <div class="sub-header">
+            <h3>MUTATED FILES REGISTRY</h3>
+            <span class="count-tag" id="mutatedCount">0</span>
+          </div>
+          <ul class="file-list" id="fileList">
+            <li class="file-empty">No files touched yet</li>
+          </ul>
+        </div>
+
+        <!-- Ingestion Hook Info -->
+        <div class="sub-panel hook-card">
+          <div class="sub-header">
+            <h3>INGESTION HOOK</h3>
+            <span class="code-tag">POST /api/event</span>
+          </div>
+          <pre class="code-preview"><code>curl -X POST http://localhost:4040/api/event \
+  -H "Content-Type: application/json" \
+  -d '{"type":"tool_call","tool":"run_cmd"}'</code></pre>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
