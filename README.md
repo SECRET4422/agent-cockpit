@@ -6,7 +6,7 @@
 **Stop watching text scroll in your terminal. See what your AI agent is doing in real-time.**
 
 [![CI](https://github.com/SECRET4422/agent-cockpit/actions/workflows/ci.yml/badge.svg)](https://github.com/SECRET4422/agent-cockpit/actions)
-[![npm version](https://img.shields.io/badge/npm-v1.0.0-blue.svg)](https://npmjs.com/package/agent-cockpit)
+[![npm version](https://img.shields.io/badge/npm-v1.0.0-blue.svg)](https://npmjs.com/package/@ssgk4422/agent-cockpit)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](http://makeapullrequest.com)
 
@@ -68,13 +68,13 @@ Launch the visual cockpit instantly with zero setup:
 
 ```bash
 # Launch interactive HUD with live simulated agent flight
-npx agent-cockpit --demo
+npx @ssgk4422/agent-cockpit --demo
 ```
 
 Or run standard monitoring mode on your preferred port:
 
 ```bash
-npx agent-cockpit --port 4040
+npx @ssgk4422/agent-cockpit --port 4040
 ```
 
 Your browser will automatically open to `http://localhost:4040`.
@@ -98,7 +98,7 @@ Run with the `--demo` flag or click the **"Simulate Flight"** button in the top 
 ## 🛠️ Features
 
 ### 1. 🎯 Real-Time Loop Recurrence Radar
-Powered by the proven algorithm from [`@SECRET4422/loopbreaker`](https://github.com/SECRET4422/loopbreaker):
+Powered by the proven algorithm from [`@ssgk4422/loopbreaker`](https://github.com/SECRET4422/loopbreaker):
 - Sliding-window hash analysis of tool call signatures and arguments.
 - Detects immediate duplicate repetitions and alternating 2-step oscillation loops ($A \rightarrow B \rightarrow A \rightarrow B$).
 - Color-coded risk meter:
