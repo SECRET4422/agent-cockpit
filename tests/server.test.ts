@@ -14,7 +14,9 @@ test('createCockpitServer - serves state and accepts event ingest', async () => 
 
   try {
     // 1. Check /api/state
-    const stateRes = await fetch(`${baseUrl}/api/state`);
+    const stateRes = await fetch(`${baseUrl}/api/state`, {
+      headers: { Connection: 'close' },
+    });
     assert.strictEqual(stateRes.status, 200);
     const stateData = (await stateRes.json()) as any;
     assert.strictEqual(stateData.breakerTripped, false);
@@ -23,7 +25,7 @@ test('createCockpitServer - serves state and accepts event ingest', async () => 
     // 2. Ingest event via POST /api/event
     const postRes = await fetch(`${baseUrl}/api/event`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Connection: 'close' },
       body: JSON.stringify({
         agentName: 'Cursor Agent',
         type: 'tool_call',
@@ -40,7 +42,7 @@ test('createCockpitServer - serves state and accepts event ingest', async () => 
     // 3. Trigger Killswitch via POST /api/killswitch
     const killRes = await fetch(`${baseUrl}/api/killswitch`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Connection: 'close' },
       body: JSON.stringify({ action: 'trip', reason: 'Automated test trip' }),
     });
     assert.strictEqual(killRes.status, 200);
@@ -50,13 +52,16 @@ test('createCockpitServer - serves state and accepts event ingest', async () => 
     // 4. Reset Killswitch via POST /api/killswitch
     const resetRes = await fetch(`${baseUrl}/api/killswitch`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Connection: 'close' },
       body: JSON.stringify({ action: 'reset' }),
     });
     assert.strictEqual(resetRes.status, 200);
     const resetData = (await resetRes.json()) as any;
     assert.strictEqual(resetData.telemetry.breakerTripped, false);
   } finally {
-    server.close();
+    if (typeof (server as any).closeAllConnections === 'function') {
+      (server as any).closeAllConnections();
+    }
+    await new Promise<void>((resolve) => server.close(() => resolve()));
   }
 });

@@ -12,7 +12,7 @@
     "prepare": "tsc",
     "start": "node bin/agent-cockpit.js",
     "dev": "tsc -w",
-    "test": "node --test dist/tests/*.test.js"
+    "test": "node --test dist/tests/engine.test.js dist/tests/server.test.js"
   },
   "repository": {
     "type": "git",
