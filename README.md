@@ -5,6 +5,12 @@
 ### Real-Time Visual Telemetry HUD & Circuit Breaker for AI Coding Agents
 **Stop watching text scroll in your terminal. See what your AI agent is doing in real-time.**
 
+<br />
+
+<img src="assets/banner.jpg" width="100%" alt="Agent Cockpit Telemetry HUD and Circuit Breaker" />
+
+<br />
+
 [![CI](https://github.com/SECRET4422/agent-cockpit/actions/workflows/ci.yml/badge.svg)](https://github.com/SECRET4422/agent-cockpit/actions)
 [![npm version](https://img.shields.io/badge/npm-v1.0.0-blue.svg)](https://npmjs.com/package/@ssgk4422/agent-cockpit)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -29,7 +35,7 @@ When running autonomous coding agents (**Cursor**, **Claude Code**, **OpenMausBo
 
 ## 🛰️ The Solution: AgentCockpit
 
-**`AgentCockpit`** is a zero-config, cyberpunk glassmorphic local HUD running on `localhost:4040`. It monitors your agent sessions, plots a real-time call recurrence radar, tracks token velocity, and provides an **autonomous circuit breaker** that halts runaway loops before they drain your API credits.
+**`AgentCockpit`** is a zero-config, cyberpunk glassmorphic local HUD running on `localhost:3333`. It monitors your agent sessions, plots a real-time call recurrence radar, tracks token velocity, and provides an **autonomous circuit breaker** that halts runaway loops before they drain your API credits.
 
 ```
                      ┌───────────────────────────────────────────────┐
@@ -56,7 +62,7 @@ When running autonomous coding agents (**Cursor**, **Claude Code**, **OpenMausBo
                                              ▼
                      ┌───────────────────────────────────────────────┐
                      │     Glassmorphic Live Browser Telemetry HUD   │
-                     │             http://localhost:4040             │
+                     │             http://localhost:3333             │
                      └───────────────────────────────────────────────┘
 ```
 
@@ -74,10 +80,10 @@ npx @ssgk4422/agent-cockpit --demo
 Or run standard monitoring mode on your preferred port:
 
 ```bash
-npx @ssgk4422/agent-cockpit --port 4040
+npx @ssgk4422/agent-cockpit --port 3333
 ```
 
-Your browser will automatically open to `http://localhost:4040`.
+Your browser will automatically open to `http://localhost:3333`.
 
 ---
 
@@ -128,7 +134,7 @@ Sending events from your own agent scripts, Cursor rules, or Python workflows is
 
 ### cURL
 ```bash
-curl -X POST http://localhost:4040/api/event \
+curl -X POST http://localhost:3333/api/event \
   -H "Content-Type: application/json" \
   -d '{
     "agentName": "Cursor Agent",
@@ -140,7 +146,7 @@ curl -X POST http://localhost:4040/api/event \
 
 ### TypeScript / Node.js
 ```typescript
-await fetch('http://localhost:4040/api/event', {
+await fetch('http://localhost:3333/api/event', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
@@ -156,7 +162,7 @@ await fetch('http://localhost:4040/api/event', {
 ```python
 import requests
 
-requests.post('http://localhost:4040/api/event', json={
+requests.post('http://localhost:3333/api/event', json={
     'agentName': 'AutoGPT / CrewAI',
     'type': 'thought',
     'message': 'Refactoring database schema...'
@@ -180,7 +186,7 @@ npm run build
 npm test
 ```
 
-All 7 test suites verify loop detection accuracy, token cost math, security guards, and HTTP/SSE endpoints.
+All test suites verify loop detection accuracy, token cost math, security guards, and HTTP/SSE endpoints.
 
 ---
 
@@ -191,7 +197,8 @@ Built by **Prabhakar Pal** ([@SECRET4422](https://github.com/SECRET4422)) at [**
 Complements our open-source agent reliability stack:
 - [`loopbreaker`](https://github.com/SECRET4422/loopbreaker) — Autonomous AI bug-loop interrupter & circuit breaker.
 - [`guardrail-mcp`](https://github.com/SECRET4422/guardrail-mcp) — Enterprise multi-language security & AST policy gate.
-- [`autosmoke`](https://github.com/SECRET4422/autosmoke) — Zero-code automated localhost invariant guard.
+- [`visual-smoke`](https://github.com/SECRET4422/visual-smoke) — Zero-code automated localhost visual smoke testing & invariant guard.
+- [`vision-craft`](https://github.com/SECRET4422/vision-craft) — Screenshot-to-Fullstack live sandbox with 1:1 ghost diffs.
 - [`mcp-deep-research-server`](https://github.com/SECRET4422/mcp-deep-research-server) — Autonomous deep web research & synthesis engine.
 
 ---
