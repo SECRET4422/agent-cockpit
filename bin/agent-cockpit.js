@@ -5,13 +5,13 @@ import { createCockpitServer } from '../dist/src/server.js';
 import { exec } from 'node:child_process';
 
 const args = process.argv.slice(2);
-let port = 4040;
+let port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3333;
 let demoMode = false;
 let autoOpen = true;
 
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '-p' || args[i] === '--port') {
-    port = parseInt(args[i + 1], 10) || 4040;
+    port = parseInt(args[i + 1], 10) || 3333;
     i++;
   } else if (args[i] === '-d' || args[i] === '--demo') {
     demoMode = true;
@@ -26,7 +26,7 @@ for (let i = 0; i < args.length; i++) {
     agent-cockpit [options]
 
   Options:
-    -p, --port <number>    Port to listen on (default: 4040)
+    -p, --port <number>    Port to listen on (default: 3333)
     -d, --demo             Launch with live simulated flight session
     --no-open              Do not automatically open browser on start
     -h, --help             Show this help guide
@@ -62,7 +62,11 @@ server.listen(port, () => {
   `);
 
   if (demoMode) {
+  if (typeof sessionState.startSimulation === 'function') {
+    sessionState.startSimulation();
+  } else if (typeof sessionState.runFlightSimulation === 'function') {
     sessionState.runFlightSimulation();
+  }
   }
 
   if (autoOpen) {

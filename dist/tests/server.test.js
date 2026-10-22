@@ -59,3 +59,39 @@ test('createCockpitServer - serves state and accepts event ingest', async () => 
         await new Promise((resolve) => server.close(() => resolve()));
     }
 });
+test('createCockpitServer - serves index.html and static assets without 404', async () => {
+    const sessionState = new SessionStateManager();
+    const server = createCockpitServer(sessionState);
+    await new Promise((resolve) => server.listen(0, resolve));
+    const port = server.address().port;
+    const baseUrl = `http://localhost:${port}`;
+    try {
+        const rootRes = await fetch(`${baseUrl}/`, { headers: { Connection: 'close' } });
+        assert.strictEqual(rootRes.status, 200);
+        const rootText = await rootRes.text();
+        assert.ok(rootText.includes('AgentCockpit'));
+        assert.ok(rootText.includes('LOOP RISK RADAR'));
+        const cssRes = await fetch(`${baseUrl}/style.css`, { headers: { Connection: 'close' } });
+        assert.strictEqual(cssRes.status, 200);
+        const jsRes = await fetch(`${baseUrl}/app.js`, { headers: { Connection: 'close' } });
+        assert.strictEqual(jsRes.status, 200);
+        const simStart = await fetch(baseUrl + '/api/simulate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Connection: 'close' },
+            body: JSON.stringify({ action: 'start' }),
+        });
+        assert.strictEqual(simStart.status, 200);
+        const simStop = await fetch(baseUrl + '/api/simulate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Connection: 'close' },
+            body: JSON.stringify({ action: 'stop' }),
+        });
+        assert.strictEqual(simStop.status, 200);
+    }
+    finally {
+        if (typeof server.closeAllConnections === 'function') {
+            server.closeAllConnections();
+        }
+        await new Promise((resolve) => server.close(() => resolve()));
+    }
+});

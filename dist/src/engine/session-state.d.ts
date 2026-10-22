@@ -21,6 +21,7 @@ export declare class SessionStateManager {
     /**
      * Starts a live flight simulation to showcase AgentCockpit's real-time detection
      */
+    runFlightSimulation(): void;
     startSimulation(): void;
     stopSimulation(): void;
 }

@@ -4,7 +4,20 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-export function createCockpitServer(sessionState, publicDir = path.resolve(__dirname, '../public')) {
+function resolveDefaultPublicDir() {
+    const candidates = [
+        path.resolve(__dirname, '../../public'),
+        path.resolve(__dirname, '../public'),
+        path.resolve(process.cwd(), 'public'),
+    ];
+    for (const dir of candidates) {
+        if (fs.existsSync(dir) && fs.existsSync(path.join(dir, 'index.html'))) {
+            return dir;
+        }
+    }
+    return candidates[0];
+}
+export function createCockpitServer(sessionState, publicDir = resolveDefaultPublicDir()) {
     const server = http.createServer((req, res) => {
         const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
         // CORS headers for local agent hook integration

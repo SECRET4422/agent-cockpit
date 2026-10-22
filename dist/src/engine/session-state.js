@@ -165,6 +165,9 @@ export class SessionStateManager {
     /**
      * Starts a live flight simulation to showcase AgentCockpit's real-time detection
      */
+    runFlightSimulation() {
+        this.startSimulation();
+    }
     startSimulation() {
         if (this.simulationInterval)
             return;
