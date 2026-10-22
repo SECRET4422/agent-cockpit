@@ -2,6 +2,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { ProxyGateway } from './engine/proxy-gateway.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 function resolveDefaultPublicDir() {
@@ -17,13 +18,18 @@ function resolveDefaultPublicDir() {
     }
     return candidates[0];
 }
-export function createCockpitServer(sessionState, publicDir = resolveDefaultPublicDir()) {
+export function createCockpitServer(sessionState, publicDir = resolveDefaultPublicDir(), proxyGateway = new ProxyGateway(sessionState)) {
     const server = http.createServer((req, res) => {
         const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
-        // CORS headers for local agent hook integration
+        // Handle Reverse Proxy Gateway (/v1/*)
+        if (url.pathname.startsWith('/v1/')) {
+            if (proxyGateway.handleRequest(req, res)) {
+                return;
+            }
+        }
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-upstream-url');
         if (req.method === 'OPTIONS') {
             res.writeHead(204);
             res.end();
@@ -36,10 +42,8 @@ export function createCockpitServer(sessionState, publicDir = resolveDefaultPubl
                 'Cache-Control': 'no-cache',
                 Connection: 'keep-alive',
             });
-            // Send immediate state
             const initialPayload = JSON.stringify(sessionState.getTelemetry());
             res.write(`data: ${initialPayload}\n\n`);
-            // Subscribe to live updates
             const unsubscribe = sessionState.subscribe((telemetry) => {
                 res.write(`data: ${JSON.stringify(telemetry)}\n\n`);
             });
@@ -123,7 +127,6 @@ export function createCockpitServer(sessionState, publicDir = resolveDefaultPubl
         }
         // 6. Static File Serving from public/
         let filePath = path.join(publicDir, url.pathname === '/' ? 'index.html' : url.pathname);
-        // Prevent directory traversal
         if (!filePath.startsWith(publicDir)) {
             res.writeHead(403);
             res.end('Forbidden');

@@ -1,4 +1,5 @@
 import { AgentEvent } from '../types.js';
+import crypto from 'node:crypto';
 
 export interface LoopAnalysis {
   riskScore: number; // 0 to 100
@@ -12,7 +13,7 @@ export class LoopDetector {
   private readonly windowSize: number;
   private readonly tripThreshold: number;
 
-  constructor(windowSize = 15, tripThreshold = 80) {
+  constructor(windowSize = 20, tripThreshold = 80) {
     this.windowSize = windowSize;
     this.tripThreshold = tripThreshold;
   }
@@ -26,95 +27,114 @@ export class LoopDetector {
     this.callHistory.push({
       tool: event.tool,
       argsHash,
-      timestamp: event.timestamp,
+      timestamp: event.timestamp || Date.now(),
     });
 
     if (this.callHistory.length > this.windowSize) {
       this.callHistory.shift();
     }
 
-    return this.currentAnalysis();
+    return this.analyze();
   }
 
   public analyze(): LoopAnalysis {
-    return this.currentAnalysis();
-  }
-
-  public reset(): void {
-    this.callHistory = [];
-  }
-
-  private hashArgs(args: Record<string, unknown>): string {
-    try {
-      return JSON.stringify(args, Object.keys(args).sort());
-    } catch {
-      return String(args);
-    }
-  }
-
-  private currentAnalysis(): LoopAnalysis {
     if (this.callHistory.length < 2) {
-      return { riskScore: 0, warning: null, shouldTripBreaker: false };
+      return {
+        riskScore: 0,
+        warning: 'Nominal execution',
+        shouldTripBreaker: false,
+      };
     }
 
-    let consecutiveDuplicates = 1;
-    const last = this.callHistory[this.callHistory.length - 1];
+    let riskScore = 0;
+    let warning: string | null = null;
+    let tripReason: string | undefined;
 
-    for (let i = this.callHistory.length - 2; i >= 0; i--) {
-      const prev = this.callHistory[i];
-      if (prev.tool === last.tool && prev.argsHash === last.argsHash) {
-        consecutiveDuplicates++;
+    const len = this.callHistory.length;
+    const last = this.callHistory[len - 1];
+
+    // 1. Consecutive identical call detection
+    let consecutiveIdentical = 1;
+    for (let i = len - 2; i >= 0; i--) {
+      if (this.callHistory[i].tool === last.tool && this.callHistory[i].argsHash === last.argsHash) {
+        consecutiveIdentical++;
       } else {
         break;
       }
     }
 
-    // Direct repetition check
-    if (consecutiveDuplicates >= 4) {
-      return {
-        riskScore: 100,
-        warning: `CRITICAL: Tool '${last.tool}' invoked ${consecutiveDuplicates} times with identical arguments!`,
-        shouldTripBreaker: true,
-        tripReason: `Runaway loop: '${last.tool}' repeated ${consecutiveDuplicates}x with identical args`,
-      };
-    } else if (consecutiveDuplicates === 3) {
-      return {
-        riskScore: 85,
-        warning: `WARNING: Tool '${last.tool}' invoked 3 consecutive times with identical arguments.`,
-        shouldTripBreaker: this.tripThreshold <= 85,
-        tripReason: `Repetitive tool call: '${last.tool}' repeated 3x`,
-      };
-    } else if (consecutiveDuplicates === 2) {
-      return {
-        riskScore: 40,
-        warning: `Potential loop: '${last.tool}' repeated 2 consecutive times.`,
-        shouldTripBreaker: false,
-      };
+    if (consecutiveIdentical >= 4) {
+      riskScore = 100;
+      tripReason = `Repetitive tool call: '${last.tool}' repeated ${consecutiveIdentical}x identically`;
+    } else if (consecutiveIdentical === 3) {
+      riskScore = 85;
+      tripReason = `Repetitive tool call: '${last.tool}' repeated 3x`;
+    } else if (consecutiveIdentical === 2) {
+      riskScore = 40;
+      warning = `Tool '${last.tool}' repeated with identical arguments`;
     }
 
-    // Cyclic pattern check (e.g. A -> B -> A -> B)
-    if (this.callHistory.length >= 4) {
-      const len = this.callHistory.length;
-      const c1 = this.callHistory[len - 1];
-      const c2 = this.callHistory[len - 2];
-      const c3 = this.callHistory[len - 3];
-      const c4 = this.callHistory[len - 4];
+    // 2. 2-Step cyclic oscillation detection (A -> B -> A -> B)
+    if (len >= 4 && riskScore < 80) {
+      const a1 = this.callHistory[len - 1];
+      const b1 = this.callHistory[len - 2];
+      const a2 = this.callHistory[len - 3];
+      const b2 = this.callHistory[len - 4];
 
       if (
-        c1.tool === c3.tool &&
-        c1.argsHash === c3.argsHash &&
-        c2.tool === c4.tool &&
-        c2.argsHash === c4.argsHash
+        a1.tool === a2.tool &&
+        a1.argsHash === a2.argsHash &&
+        b1.tool === b2.tool &&
+        b1.argsHash === b2.argsHash &&
+        a1.tool !== b1.tool
       ) {
-        return {
-          riskScore: 90,
-          warning: `CRITICAL: 2-step oscillation loop detected: [${c2.tool} <-> ${c1.tool}]`,
-          shouldTripBreaker: true,
-          tripReason: `Alternating cyclic loop detected between '${c2.tool}' and '${c1.tool}'`,
-        };
+        riskScore = 90;
+        tripReason = `Oscillation cycle detected between '${a1.tool}' and '${b1.tool}'`;
       }
     }
 
-    return { riskScore: 10, warning: null, shouldTripBreaker: false };
+    // 3. 3-Step cyclic loop detection (A -> B -> C -> A -> B -> C)
+    if (len >= 6 && riskScore < 80) {
+      const a1 = this.callHistory[len - 1];
+      const b1 = this.callHistory[len - 2];
+      const c1 = this.callHistory[len - 3];
+      const a2 = this.callHistory[len - 4];
+      const b2 = this.callHistory[len - 5];
+      const c2 = this.callHistory[len - 6];
+
+      if (a1.tool === a2.tool && b1.tool === b2.tool && c1.tool === c2.tool) {
+        riskScore = 85;
+        tripReason = `3-step cyclic execution pattern detected: [${c1.tool} -> ${b1.tool} -> ${a1.tool}]`;
+      }
+    }
+
+    const shouldTripBreaker = riskScore >= this.tripThreshold;
+    if (shouldTripBreaker && !warning) {
+      warning = tripReason || 'Autonomous loop prevention triggered';
+    }
+
+    return {
+      riskScore,
+      warning,
+      shouldTripBreaker,
+      tripReason,
+    };
+  }
+
+  private hashArgs(args: Record<string, unknown>): string {
+    try {
+      const str = JSON.stringify(args, Object.keys(args).sort());
+      return crypto.createHash('sha256').update(str).digest('hex').substring(0, 16);
+    } catch {
+      return 'hash_err';
+    }
+  }
+
+  public currentAnalysis(): LoopAnalysis {
+    return this.analyze();
+  }
+
+  public reset(): void {
+    this.callHistory = [];
   }
 }

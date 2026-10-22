@@ -16,8 +16,8 @@
       <div class="brand">
         <div class="radar-dot"></div>
         <div class="brand-text">
-          <h1>AGENT COCKPIT <span class="version-tag">v1.0.0</span></h1>
-          <p class="brand-sub">Autonomous Telemetry & LoopBreaker Radar · AlphaTech Studio</p>
+          <h1>AGENT COCKPIT <span class="version-tag">v1.1.0</span></h1>
+          <p class="brand-sub">Autonomous Telemetry, AI Reverse Proxy & LoopBreaker Radar · AlphaTech Studio</p>
         </div>
       </div>
 
@@ -89,11 +89,11 @@
         <div class="metric-footnote" id="tokenRateFootnote">0 tokens / sec</div>
       </div>
 
-      <!-- 3. Total Session Cost -->
+      <!-- 3. Total Session Cost & Real Accounting -->
       <div class="metric-card">
         <div class="metric-header">
           <span class="metric-title">SESSION TOKENS</span>
-          <span class="metric-badge">CUMULATIVE</span>
+          <span class="metric-badge" id="tokenSourceBadge">CUMULATIVE</span>
         </div>
         <div class="metric-value-box">
           <span class="value-large" id="totalTokensVal">0</span>
@@ -102,16 +102,16 @@
         <div class="metric-footnote" id="tokenSplitFootnote">In: 0 · Out: 0</div>
       </div>
 
-      <!-- 4. Active Target & Files -->
+      <!-- 4. Active Target & Proxy Gateway -->
       <div class="metric-card">
         <div class="metric-header">
-          <span class="metric-title">ACTIVE AGENT</span>
-          <span class="metric-badge active" id="activeAgentBadge">CONNECTED</span>
+          <span class="metric-title">REVERSE PROXY</span>
+          <span class="metric-badge active" id="proxyStatusBadge">ONLINE</span>
         </div>
         <div class="metric-value-box">
-          <span class="agent-name-display" id="activeAgentName">Claude 3.5 Sonnet</span>
+          <span class="agent-name-display" id="proxyTargetDisplay">localhost:3333/v1</span>
         </div>
-        <div class="metric-footnote" id="filesMutatedFootnote">0 files modified</div>
+        <div class="metric-footnote" id="proxyStatsFootnote">0 requests · 0 blocked by breaker</div>
       </div>
     </section>
 
@@ -136,8 +136,8 @@
         <div class="events-feed" id="eventsFeed">
           <div class="feed-empty-state">
             <div class="empty-icon">🛰️</div>
-            <p>Awaiting agent flight telemetry telemetry...</p>
-            <span class="subtext">Click <b>"Simulate Flight"</b> to preview a live agent loop interception.</span>
+            <p>Awaiting agent flight telemetry or proxy traffic...</p>
+            <span class="subtext">Configure your agent's API base to <code>http://localhost:3333/v1</code> or click <b>"Simulate Flight"</b>.</span>
           </div>
         </div>
       </section>
@@ -169,12 +169,11 @@
         <!-- Ingestion Hook Info -->
         <div class="sub-panel hook-card">
           <div class="sub-header">
-            <h3>INGESTION HOOK</h3>
-            <span class="code-tag">POST /api/event</span>
+            <h3>AI PROXY CONFIGURATION</h3>
+            <span class="code-tag">OPENAI / ANTHROPIC</span>
           </div>
-          <pre class="code-preview"><code>curl -X POST http://localhost:3333/api/event \
-  -H "Content-Type: application/json" \
-  -d '{"type":"tool_call","tool":"run_cmd"}'</code></pre>
+          <pre class="code-preview" id="proxySnippet"><code>export OPENAI_BASE_URL="http://localhost:3333/v1"
+# Any agent requests will be loop-checked and guarded!</code></pre>
         </div>
       </aside>
     </main>

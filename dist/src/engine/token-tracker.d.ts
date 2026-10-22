@@ -8,17 +8,18 @@ export declare class TokenTracker {
     private totalInputTokens;
     private totalOutputTokens;
     private totalCostUsd;
+    private isEstimated;
     private recentTokenEvents;
     recordUsage(tokens: TokenUsage): void;
+    estimateCost(input: number, output: number, model?: string): number;
+    getBurnRatePerMin(): number;
     getSummary(): {
         inputTokens: number;
         outputTokens: number;
         totalTokens: number;
         totalCostUsd: number;
         burnRatePerMin: number;
+        isEstimated: boolean;
     };
-    estimateCost(input: number, output: number, model?: string): number;
     reset(): void;
-    private pruneOldEvents;
-    private calculateBurnRate;
 }

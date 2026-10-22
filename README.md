@@ -1,63 +1,54 @@
-<div align="center">
-
 # 🚀 AgentCockpit
 
-### Real-Time Visual Telemetry HUD & Circuit Breaker for AI Coding Agents
-**Stop watching text scroll in your terminal. See what your AI agent is doing in real-time.**
+> **Real-time visual telemetry HUD, AI reverse-proxy gateway, and autonomous circuit breaker for AI coding agents (Cursor, Claude Code, Aider, OpenMausBot).**
 
-<br />
+[![CI & Quality Gate](https://github.com/SECRET4422/agent-cockpit/actions/workflows/ci.yml/badge.svg)](https://github.com/SECRET4422/agent-cockpit/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/@ssgk4422/agent-cockpit.svg)](https://www.npmjs.com/package/@ssgk4422/agent-cockpit)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-<img src="assets/banner.jpg" width="100%" alt="Agent Cockpit Telemetry HUD and Circuit Breaker" />
-
-<br />
-
-[![CI](https://github.com/SECRET4422/agent-cockpit/actions/workflows/ci.yml/badge.svg)](https://github.com/SECRET4422/agent-cockpit/actions)
-[![npm version](https://img.shields.io/badge/npm-v1.0.0-blue.svg)](https://npmjs.com/package/@ssgk4422/agent-cockpit)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](http://makeapullrequest.com)
-
-[**Quickstart**](#-quickstart) •
-[**Interactive Demo**](#-interactive-flight-simulation) •
-[**Architecture**](#-architecture) •
-[**Integration**](#-agent-integration) •
-[**AlphaTech Studio**](https://alphatech.studio)
-
-</div>
+![AgentCockpit HUD Banner](assets/banner.jpg)
 
 ---
 
-## ⚡ The Problem
+## ⚡ The Problem: Runaway Agent Loops & Burn
 
-When running autonomous coding agents (**Cursor**, **Claude Code**, **OpenMausBot**, **Aider**, **Cline**), developers are forced to stare at black-box terminal logs:
+Autonomous coding agents are powerful, but when they hit unexpected compiler errors or failing unit tests, they can fall into **oscillation traps**:
 - ❌ **Runaway Loop Burn:** Agents repeat identical commands or oscillate between failing tests, burning **$10–$50** before you notice.
 - ❌ **Blind Token Velocity:** No real-time visibility into $/min burn rate or prompt saturation.
 - ❌ **Destructive Commands:** Unchecked shell commands or sensitive `.env` file mutations happen before you can hit `Ctrl+C`.
 
 ## 🛰️ The Solution: AgentCockpit
 
-**`AgentCockpit`** is a zero-config, cyberpunk glassmorphic local HUD running on `localhost:3333`. It monitors your agent sessions, plots a real-time call recurrence radar, tracks token velocity, and provides an **autonomous circuit breaker** that halts runaway loops before they drain your API credits.
+**`AgentCockpit`** is a cyberpunk glassmorphic local HUD running on `localhost:3333` that provides:
+1. **AI Reverse Proxy Gateway (`localhost:3333/v1`):** Point any agent (Cursor, Aider, Python scripts) to the proxy. It inspects requests, extracts **real provider token metrics**, and **physically blocks requests (HTTP 429)** when a runaway loop occurs.
+2. **Real-Time Loop Recurrence Radar:** Sliding-window hash analysis detecting immediate repeats ($A \rightarrow A$), 2-step oscillations ($A \rightarrow B \rightarrow A \rightarrow B$), and 3-step cycles ($A \rightarrow B \rightarrow C \rightarrow A \rightarrow B \rightarrow C$).
+3. **AST & Command Security Gate:** Acorn-powered AST analysis detecting dangerous `eval()`, dynamic `Function()`, and `child_process` execution in code diffs, alongside destructive shell command interception.
+4. **Physical Process Runner:** `agent-cockpit run -- <command>` to monitor and terminate process trees on circuit-breaker trips.
 
 ```
                      ┌───────────────────────────────────────────────┐
                      │          Autonomous AI Agent                  │
-                     │   (Cursor / Claude Code / OpenMausBot)        │
+                     │   (Cursor / Claude Code / OpenMausBot / Aider)│
                      └───────────────────────┬───────────────────────┘
-                                             │ POST /api/event (or auto-proxy)
-                                             ▼
-                     ┌───────────────────────────────────────────────┐
-                     │          AgentCockpit Local Daemon            │
-                     │                                               │
-                     │  ┌──────────────────┐  ┌───────────────────┐  │
-                     │  │   LoopBreaker    │  │   Token Velocity  │  │
-                     │  │  Recurrence Radar│  │    Speedometer    │  │
-                     │  └────────┬─────────┘  └───────────────────┘  │
-                     │           │ Critical Loop Trip (>85%)         │
-                     │           ▼                                   │
-                     │  ┌──────────────────┐  ┌───────────────────┐  │
-                     │  │ Emergency Freeze │  │   Security Gate   │  │
-                     │  │  Circuit Breaker │  │  (AST & Destruct) │  │
-                     │  └──────────────────┘  └───────────────────┘  │
-                     └───────────────────────┬───────────────────────┘
+                                             │
+                        ┌────────────────────┴────────────────────┐
+                        │ Point API Base:                         │ Manual Ingest:
+                        │ OPENAI_BASE_URL=http://localhost:3333/v1│ POST /api/event
+                        ▼                                         ▼
+                     ┌─────────────────────────────────────────────────────────┐
+                     │          AgentCockpit Local Gateway (:3333)             │
+                     │                                                         │
+                     │  ┌──────────────────┐  ┌─────────────────────────────┐  │
+                     │  │   LoopBreaker    │  │   Real Token Ledger         │  │
+                     │  │  Recurrence Radar│  │   (Provider usage metadata) │  │
+                     │  └────────┬─────────┘  └─────────────────────────────┘  │
+                     │           │ Critical Loop Trip (>80%)                   │
+                     │           ▼                                             │
+                     │  ┌──────────────────┐  ┌─────────────────────────────┐  │
+                     │  │ HTTP 429 Blocker │  │   Acorn AST Security Gate   │  │
+                     │  │  (HALTS AGENT)   │  │  (eval, child_process, keys)│  │
+                     │  └──────────────────┘  └─────────────────────────────┘  │
+                     └───────────────────────┬─────────────────────────────────┘
                                              │ SSE Stream
                                              ▼
                      ┌───────────────────────────────────────────────┐
@@ -77,7 +68,7 @@ Launch the visual cockpit instantly with zero setup:
 npx @ssgk4422/agent-cockpit --demo
 ```
 
-Or run standard monitoring mode on your preferred port:
+Or run standard monitoring & proxy mode on port 3333:
 
 ```bash
 npx @ssgk4422/agent-cockpit --port 3333
@@ -87,52 +78,29 @@ Your browser will automatically open to `http://localhost:3333`.
 
 ---
 
-## 🎮 Interactive Flight Simulation
+## 🔌 Connecting Your Agent (Real Protection)
 
-Want to see how `AgentCockpit` catches an agent runaway loop in action?
+### Method 1: Transparent AI Reverse Proxy (Recommended)
+Point your coding agent (Cursor, Aider, Cline, LangChain, CrewAI) to the Cockpit gateway:
 
-Run with the `--demo` flag or click the **"Simulate Flight"** button in the top navigation bar:
-1. The agent starts reasoning and exploring files.
-2. It executes tool calls (`read_dir`, `grep_search`).
-3. It performs a file mutation (`auth.ts`).
-4. It encounters a compiler error and enters a rapid, repetitive test loop (`npm test`).
-5. Watch the **Loop Risk Radar** jump from `0%` to `40%` to `85%`.
-6. At 4 repetitions, the **LoopBreaker Circuit Breaker** automatically trips, displays the emergency warning, triggers an audio alert, and halts the agent!
+```bash
+export OPENAI_BASE_URL="http://localhost:3333/v1"
+```
 
----
+* **How it protects:** The gateway forwards requests to the upstream provider (e.g. OpenAI/Anthropic), extracts exact token usage, and monitors tool call recurrence.
+* **How it halts loops:** When a loop is detected, the gateway immediately returns `HTTP 429 (Circuit Breaker Tripped)`. The agent's next API turn is rejected, **physically stopping the agent**.
 
-## 🛠️ Features
+### Method 2: Monitored Process Execution
+Run any agent or script under the Cockpit process runner:
 
-### 1. 🎯 Real-Time Loop Recurrence Radar
-Powered by the proven algorithm from [`@ssgk4422/loopbreaker`](https://github.com/SECRET4422/loopbreaker):
-- Sliding-window hash analysis of tool call signatures and arguments.
-- Detects immediate duplicate repetitions and alternating 2-step oscillation loops ($A \rightarrow B \rightarrow A \rightarrow B$).
-- Color-coded risk meter:
-  - **0% – 39%:** `NOMINAL` (Green)
-  - **40% – 79%:** `ELEVATED` (Amber)
-  - **80% – 100%:** `CRITICAL` (Red - Breaker Trips)
+```bash
+npx @ssgk4422/agent-cockpit run -- npm test
+# Or run your Python agent
+npx @ssgk4422/agent-cockpit run -- python agent.py
+```
+When the circuit breaker trips or you click **"EMERGENCY TRIP"** on the dashboard, Cockpit immediately terminates the child process hierarchy.
 
-### 2. ⚡ Token Burn Velocity Gauge
-- Real-time speedometer tracking token spend in **$/minute** and **tokens/second**.
-- Live session token ledger (Input, Output, Cumulative USD cost).
-- Configured for frontier models (Claude 3.5 Sonnet, GPT-4o, DeepSeek V3).
-
-### 3. 🚨 1-Click Emergency Freeze Killswitch
-- Big physical glowing killswitch toggle in the HUD header.
-- Instantly halts event ingestion, sets agent state to `BREAKER_TRIPPED`, and signals connected client wrappers to freeze execution.
-- 1-click **Reset & Resume** button once the developer inspects the diff.
-
-### 4. 🛡️ AST & Security Gate
-- Flags catastrophic shell patterns (`rm -rf /`, fork bombs, curl-pipe-sh).
-- Intercepts accidental `.env`, `.ssh/`, and sensitive dotfile mutations before commits.
-
----
-
-## 🔌 Agent Integration
-
-Sending events from your own agent scripts, Cursor rules, or Python workflows is as simple as a single HTTP POST request:
-
-### cURL
+### Method 3: Direct Event Ingestion (cURL / Python / Node)
 ```bash
 curl -X POST http://localhost:3333/api/event \
   -H "Content-Type: application/json" \
@@ -144,30 +112,32 @@ curl -X POST http://localhost:3333/api/event \
   }'
 ```
 
-### TypeScript / Node.js
-```typescript
-await fetch('http://localhost:3333/api/event', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    agentName: 'Claude Code',
-    type: 'tool_call',
-    tool: 'run_command',
-    args: { cmd: 'cargo test' }
-  })
-});
-```
+---
 
-### Python
-```python
-import requests
+## 🛠️ Features
 
-requests.post('http://localhost:3333/api/event', json={
-    'agentName': 'AutoGPT / CrewAI',
-    'type': 'thought',
-    'message': 'Refactoring database schema...'
-})
-```
+### 1. 🎯 Real-Time Loop Recurrence Radar
+- Sliding-window hash analysis of tool call signatures and arguments.
+- Detects immediate duplicate repetitions, 2-step oscillation loops ($A \rightarrow B \rightarrow A \rightarrow B$), and 3-step cycles ($A \rightarrow B \rightarrow C \rightarrow A \rightarrow B \rightarrow C$).
+- Visual Risk Meter:
+  - **0% – 39%:** `NOMINAL` (Green)
+  - **40% – 79%:** `ELEVATED` (Amber)
+  - **80% – 100%:** `CRITICAL` (Red - Breaker Trips & Blocks Traffic)
+
+### 2. ⚡ Real Token Velocity & Cost Accounting
+- Real-time speedometer tracking token spend in **$/minute** and **tokens/second**.
+- Exact token ledger reading real `prompt_tokens` and `completion_tokens` from provider metadata (NO fabricated numbers).
+- Configured for frontier models (Claude 3.5 Sonnet, GPT-4o, GPT-4o-mini, DeepSeek V3, DeepSeek R1).
+
+### 3. 🚨 1-Click Emergency Freeze Killswitch
+- Prominent glowing killswitch toggle in the HUD header.
+- Instantly halts event ingestion, sets agent state to `BREAKER_TRIPPED`, and blocks outgoing proxy calls.
+- 1-click **Reset & Resume** button once you inspect the code diff.
+
+### 4. 🛡️ Acorn AST & Shell Security Gate
+- Real AST analysis using Acorn to detect dangerous `eval()`, dynamic `Function()`, and `child_process` execution.
+- Intercepts catastrophic shell patterns (`rm -rf /`, fork bombs, curl-pipe-sh).
+- Scans payloads for leaked credentials (OpenAI/Anthropic keys, AWS keys, GitHub tokens, private keys).
 
 ---
 
@@ -186,7 +156,7 @@ npm run build
 npm test
 ```
 
-All test suites verify loop detection accuracy, token cost math, security guards, and HTTP/SSE endpoints.
+All test suites verify loop detection accuracy, token cost math, AST security guards, HTTP/SSE endpoints, and the AI Reverse Proxy Gateway.
 
 ---
 

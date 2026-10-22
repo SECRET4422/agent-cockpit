@@ -14,9 +14,16 @@ export class SessionStateManager {
     breakerReason;
     subscribers = [];
     simulationInterval = null;
+    activeChildPid = null;
+    // Real Proxy Metrics
+    proxyMetrics = {
+        totalRequests: 0,
+        blockedRequests: 0,
+        activeProvider: 'OpenAI/Anthropic Gateway',
+        upstreamUrl: 'https://api.openai.com/v1',
+    };
     ingestEvent(rawEvent) {
         if (this.breakerTripped) {
-            // Breaker is active: do not accept file mutations or dangerous calls
             this.activeState = 'BREAKER_TRIPPED';
         }
         const event = {
@@ -33,11 +40,9 @@ export class SessionStateManager {
             durationMs: rawEvent.durationMs,
             status: rawEvent.status || 'completed',
         };
-        // Update active agent if provided
         if (rawEvent.agentName) {
             this.activeAgent = rawEvent.agentName;
         }
-        // Determine state
         if (this.breakerTripped) {
             this.activeState = 'BREAKER_TRIPPED';
         }
@@ -53,24 +58,25 @@ export class SessionStateManager {
         else {
             this.activeState = 'IDLE';
         }
-        // Mutated files
         if (event.file) {
             this.mutatedFilesSet.add(event.file);
         }
-        // Tokens
+        // Token accounting: REAL tokens if present, or transparent char-ratio heuristic (NO Math.random!)
         if (event.tokens) {
             this.tokenTracker.recordUsage(event.tokens);
         }
         else if (event.type === 'tool_call') {
-            // Auto estimate moderate tokens per tool call
-            const input = 1200 + Math.floor(Math.random() * 800);
-            const output = 250 + Math.floor(Math.random() * 150);
-            const cost = this.tokenTracker.estimateCost(input, output);
-            this.tokenTracker.recordUsage({ input, output, costEstimate: cost });
+            const charCount = JSON.stringify(event.args || {}).length + (event.message || '').length;
+            const estimatedTokens = Math.max(10, Math.ceil(charCount / 4));
+            const cost = this.tokenTracker.estimateCost(estimatedTokens, Math.ceil(estimatedTokens / 4));
+            this.tokenTracker.recordUsage({
+                input: estimatedTokens,
+                output: Math.ceil(estimatedTokens / 4),
+                costEstimate: cost,
+                isEstimated: true,
+            });
         }
-        // Security check
         this.securityGuard.inspectEvent(event);
-        // Loop detection
         const loopAnalysis = this.loopDetector.recordCall(event);
         if (loopAnalysis.shouldTripBreaker && !this.breakerTripped) {
             this.tripBreaker(loopAnalysis.tripReason || 'Autonomous loop prevention triggered');
@@ -82,6 +88,26 @@ export class SessionStateManager {
         const telemetry = this.getTelemetry();
         this.notifySubscribers(telemetry);
         return telemetry;
+    }
+    recordRealTokens(input, output, model) {
+        const cost = this.tokenTracker.estimateCost(input, output, model);
+        this.tokenTracker.recordUsage({
+            input,
+            output,
+            costEstimate: cost,
+            isEstimated: false,
+            model,
+        });
+        this.notifySubscribers(this.getTelemetry());
+    }
+    recordProxySuccess(upstreamUrl) {
+        this.proxyMetrics.totalRequests++;
+        this.proxyMetrics.upstreamUrl = upstreamUrl;
+    }
+    recordProxyBlocked() {
+        this.proxyMetrics.totalRequests++;
+        this.proxyMetrics.blockedRequests++;
+        this.notifySubscribers(this.getTelemetry());
     }
     tripBreaker(reason = 'Manual Emergency Killswitch Engaged') {
         this.breakerTripped = true;
@@ -120,6 +146,16 @@ export class SessionStateManager {
         this.notifySubscribers(telemetry);
         return telemetry;
     }
+    isBreakerTripped() {
+        return this.breakerTripped;
+    }
+    getBreakerReason() {
+        return this.breakerReason;
+    }
+    setActiveChildPid(pid) {
+        this.activeChildPid = pid;
+        this.notifySubscribers(this.getTelemetry());
+    }
     getTelemetry() {
         const loopAnalysis = this.loopDetector.analyze();
         const tokenSummary = this.tokenTracker.getSummary();
@@ -134,6 +170,7 @@ export class SessionStateManager {
                 input: tokenSummary.inputTokens,
                 output: tokenSummary.outputTokens,
                 total: tokenSummary.totalTokens,
+                isEstimated: tokenSummary.isEstimated,
             },
             totalCostUsd: tokenSummary.totalCostUsd,
             burnRatePerMin: tokenSummary.burnRatePerMin,
@@ -144,6 +181,8 @@ export class SessionStateManager {
             recentEvents: this.recentEvents,
             mutatedFiles: Array.from(this.mutatedFilesSet),
             securityAlerts: this.securityGuard.getAlerts(),
+            proxyMetrics: this.proxyMetrics,
+            activeChildPid: this.activeChildPid,
         };
     }
     subscribe(callback) {
@@ -162,9 +201,6 @@ export class SessionStateManager {
             }
         }
     }
-    /**
-     * Starts a live flight simulation to showcase AgentCockpit's real-time detection
-     */
     runFlightSimulation() {
         this.startSimulation();
     }
@@ -201,7 +237,6 @@ export class SessionStateManager {
                 type: 'thought',
                 message: 'Running test runner to verify fix.',
             },
-            // Now initiate a rapid loop!
             {
                 type: 'tool_call',
                 tool: 'run_command',

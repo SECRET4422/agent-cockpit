@@ -87,14 +87,14 @@ test('createCockpitServer - serves index.html and static assets without 404', as
     const jsRes = await fetch(`${baseUrl}/app.js`, { headers: { Connection: 'close' } });
     assert.strictEqual(jsRes.status, 200);
 
-    const simStart = await fetch(baseUrl + '/api/simulate', {
+    const simStart = await fetch(`${baseUrl}/api/simulate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Connection: 'close' },
       body: JSON.stringify({ action: 'start' }),
     });
     assert.strictEqual(simStart.status, 200);
 
-    const simStop = await fetch(baseUrl + '/api/simulate', {
+    const simStop = await fetch(`${baseUrl}/api/simulate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Connection: 'close' },
       body: JSON.stringify({ action: 'stop' }),

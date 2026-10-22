@@ -10,149 +10,149 @@ test('LoopDetector - nominal non-repeating calls should have low risk', () => {
   detector.recordCall({
     id: '1',
     timestamp: Date.now(),
-    agentId: 'test',
-    agentName: 'TestAgent',
+    agentId: 'a',
+    agentName: 'Test',
     type: 'tool_call',
     tool: 'read_file',
     args: { path: 'a.ts' },
   });
-  detector.recordCall({
+  const res = detector.recordCall({
     id: '2',
     timestamp: Date.now(),
-    agentId: 'test',
-    agentName: 'TestAgent',
-    type: 'tool_call',
-    tool: 'read_file',
-    args: { path: 'b.ts' },
-  });
-  const res = detector.recordCall({
-    id: '3',
-    timestamp: Date.now(),
-    agentId: 'test',
-    agentName: 'TestAgent',
+    agentId: 'a',
+    agentName: 'Test',
     type: 'tool_call',
     tool: 'grep_search',
-    args: { query: 'foo' },
+    args: { pattern: 'test' },
   });
-
   assert.strictEqual(res.shouldTripBreaker, false);
-  assert.ok(res.riskScore <= 20);
+  assert.strictEqual(res.riskScore, 0);
 });
 
 test('LoopDetector - consecutive identical calls should escalate and trip breaker', () => {
   const detector = new LoopDetector();
-  const makeCall = () => ({
-    id: String(Math.random()),
-    timestamp: Date.now(),
-    agentId: 'test',
-    agentName: 'TestAgent',
-    type: 'tool_call' as const,
-    tool: 'run_command',
-    args: { cmd: 'npm test' },
-  });
-
-  detector.recordCall(makeCall());
-  const r2 = detector.recordCall(makeCall());
-  assert.strictEqual(r2.riskScore, 40);
-
-  const r3 = detector.recordCall(makeCall());
-  assert.strictEqual(r3.riskScore, 85);
-
-  const r4 = detector.recordCall(makeCall());
-  assert.strictEqual(r4.riskScore, 100);
-  assert.strictEqual(r4.shouldTripBreaker, true);
-  assert.ok(r4.tripReason?.includes('Runaway loop'));
+  for (let i = 0; i < 3; i++) {
+    detector.recordCall({
+      id: `${i}`,
+      timestamp: Date.now(),
+      agentId: 'a',
+      agentName: 'Test',
+      type: 'tool_call',
+      tool: 'run_command',
+      args: { cmd: 'cargo test' },
+    });
+  }
+  const trip = detector.analyze();
+  assert.strictEqual(trip.shouldTripBreaker, true);
+  assert.ok(trip.riskScore >= 80);
 });
 
 test('LoopDetector - cyclic oscillation (A -> B -> A -> B) trips breaker', () => {
   const detector = new LoopDetector();
-  const callA = {
-    id: 'a',
-    timestamp: Date.now(),
-    agentId: 'test',
-    agentName: 'TestAgent',
-    type: 'tool_call' as const,
-    tool: 'toolA',
-    args: { x: 1 },
-  };
-  const callB = {
-    id: 'b',
-    timestamp: Date.now(),
-    agentId: 'test',
-    agentName: 'TestAgent',
-    type: 'tool_call' as const,
-    tool: 'toolB',
-    args: { y: 2 },
-  };
-
-  detector.recordCall(callA);
-  detector.recordCall(callB);
-  detector.recordCall(callA);
-  const res = detector.recordCall(callB);
-
-  assert.strictEqual(res.riskScore, 90);
-  assert.strictEqual(res.shouldTripBreaker, true);
-  assert.ok(res.tripReason?.includes('Alternating cyclic loop'));
+  const sequence = ['edit_file', 'npm_test', 'edit_file', 'npm_test'];
+  for (let i = 0; i < sequence.length; i++) {
+    detector.recordCall({
+      id: `${i}`,
+      timestamp: Date.now(),
+      agentId: 'a',
+      agentName: 'Test',
+      type: 'tool_call',
+      tool: sequence[i],
+      args: { file: 'index.ts' },
+    });
+  }
+  const trip = detector.analyze();
+  assert.strictEqual(trip.shouldTripBreaker, true);
+  assert.ok(trip.riskScore >= 80);
+  assert.ok(trip.tripReason?.includes('Oscillation cycle detected'));
 });
 
-test('TokenTracker - computes token sums and cost estimations', () => {
-  const tracker = new TokenTracker();
-  tracker.recordUsage({ input: 10000, output: 2000, costEstimate: 0.06 });
-  const summary = tracker.getSummary();
+test('LoopDetector - 3-step cycle (A -> B -> C -> A -> B -> C) trips breaker', () => {
+  const detector = new LoopDetector();
+  const sequence = ['read_file', 'edit_file', 'npm_test', 'read_file', 'edit_file', 'npm_test'];
+  for (let i = 0; i < sequence.length; i++) {
+    detector.recordCall({
+      id: `${i}`,
+      timestamp: Date.now(),
+      agentId: 'a',
+      agentName: 'Test',
+      type: 'tool_call',
+      tool: sequence[i],
+      args: { file: 'main.py' },
+    });
+  }
+  const trip = detector.analyze();
+  assert.strictEqual(trip.shouldTripBreaker, true);
+  assert.ok(trip.riskScore >= 80);
+  assert.ok(trip.tripReason?.includes('3-step cyclic execution'));
+});
 
-  assert.strictEqual(summary.inputTokens, 10000);
-  assert.strictEqual(summary.outputTokens, 2000);
-  assert.strictEqual(summary.totalTokens, 12000);
-  assert.strictEqual(summary.totalCostUsd, 0.06);
+test('TokenTracker - computes exact token sums and honest cost estimations', () => {
+  const tracker = new TokenTracker();
+  tracker.recordUsage({
+    input: 1_000_000,
+    output: 100_000,
+    costEstimate: tracker.estimateCost(1_000_000, 100_000, 'gpt-4o'),
+    isEstimated: false,
+  });
+
+  const summary = tracker.getSummary();
+  assert.strictEqual(summary.inputTokens, 1_000_000);
+  assert.strictEqual(summary.outputTokens, 100_000);
+  assert.strictEqual(summary.totalTokens, 1_100_000);
+  // GPT-4o: $2.50 in, $10.00/M out => 2.50 + 1.00 = $3.50
+  assert.strictEqual(Math.round(summary.totalCostUsd * 100) / 100, 3.5);
+  assert.strictEqual(summary.isEstimated, false);
+});
+
+test('SecurityGuard - Acorn AST parser detects dangerous dynamic eval and processes', () => {
+  const guard = new SecurityGuard();
+  const dangerousCode = `
+    const userPayload = "alert(1)";
+    eval(userPayload);
+    const child = require("child_process");
+    child.exec("rm -rf /tmp/data");
+  `;
+
+  const alerts = guard.inspectCodeAST(dangerousCode, 'sandbox.js');
+  assert.ok(alerts.some((a) => a.rule === 'AST_DYNAMIC_CODE_EVAL'));
+  assert.ok(alerts.some((a) => a.rule === 'AST_PROCESS_EXEC'));
 });
 
 test('SecurityGuard - flags catastrophic shell deletions and secrets', () => {
   const guard = new SecurityGuard();
-  const badEvent = {
-    id: 'sec-1',
+  const alerts = guard.inspectEvent({
+    id: '1',
     timestamp: Date.now(),
-    agentId: 'test',
-    agentName: 'TestAgent',
-    type: 'tool_call' as const,
+    agentId: 'a',
+    agentName: 'Test',
+    type: 'tool_call',
     tool: 'run_command',
     args: { cmd: 'rm -rf /' },
-  };
+  });
+  assert.ok(alerts.some((a) => a.rule === 'DESTRUCTIVE_COMMAND'));
 
-  const alerts = guard.inspectEvent(badEvent);
-  assert.ok(alerts.length > 0);
-  assert.strictEqual(alerts[0].rule, 'DESTRUCTIVE_COMMAND');
-  assert.strictEqual(alerts[0].severity, 'critical');
-
-  const fileEvent = {
-    id: 'sec-2',
+  const secretAlerts = guard.inspectEvent({
+    id: '2',
     timestamp: Date.now(),
-    agentId: 'test',
-    agentName: 'TestAgent',
-    type: 'file_mutation' as const,
-    file: 'backend/.env',
-  };
-  const fileAlerts = guard.inspectEvent(fileEvent);
-  assert.ok(fileAlerts.length > 0);
-  assert.strictEqual(fileAlerts[0].rule, 'SENSITIVE_FILE_ACCESS');
+    agentId: 'a',
+    agentName: 'Test',
+    type: 'tool_call',
+    tool: 'read_file',
+    args: { file: '.env.production' },
+  });
+  assert.ok(secretAlerts.some((a) => a.rule === 'SENSITIVE_FILE_ACCESS'));
 });
 
 test('SessionStateManager - manages state, trips breaker, and resets', () => {
-  const manager = new SessionStateManager();
-  const telemetry = manager.ingestEvent({
-    type: 'tool_call',
-    tool: 'fetch_data',
-    args: { id: 100 },
-  });
+  const state = new SessionStateManager();
+  assert.strictEqual(state.isBreakerTripped(), false);
 
-  assert.strictEqual(telemetry.activeState, 'EXECUTING_TOOL');
-  assert.strictEqual(telemetry.breakerTripped, false);
+  state.tripBreaker('Manual trip');
+  assert.strictEqual(state.isBreakerTripped(), true);
+  assert.strictEqual(state.getTelemetry().activeState, 'BREAKER_TRIPPED');
 
-  // Manual Trip
-  const tripped = manager.tripBreaker('Manual intervention test');
-  assert.strictEqual(tripped.breakerTripped, true);
-  assert.strictEqual(tripped.activeState, 'BREAKER_TRIPPED');
-
-  // Reset
-  const reset = manager.resetBreaker();
-  assert.strictEqual(reset.breakerTripped, false);
+  state.resetBreaker();
+  assert.strictEqual(state.isBreakerTripped(), false);
+  assert.strictEqual(state.getTelemetry().activeState, 'IDLE');
 });

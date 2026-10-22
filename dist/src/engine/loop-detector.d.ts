@@ -12,7 +12,7 @@ export declare class LoopDetector {
     constructor(windowSize?: number, tripThreshold?: number);
     recordCall(event: AgentEvent): LoopAnalysis;
     analyze(): LoopAnalysis;
-    reset(): void;
     private hashArgs;
-    private currentAnalysis;
+    currentAnalysis(): LoopAnalysis;
+    reset(): void;
 }

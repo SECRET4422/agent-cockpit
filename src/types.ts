@@ -5,12 +5,17 @@ export type EventType =
   | 'file_mutation'
   | 'error'
   | 'alert'
-  | 'breaker_tripped';
+  | 'breaker_tripped'
+  | 'proxy_request'
+  | 'proxy_blocked';
 
 export interface TokenUsage {
   input: number;
   output: number;
   costEstimate: number; // in USD
+  isEstimated?: boolean; // false when reported by provider API, true if heuristic
+  model?: string;
+  provider?: string;
 }
 
 export interface SecurityAlert {
@@ -20,6 +25,7 @@ export interface SecurityAlert {
   description: string;
   timestamp: number;
   target?: string;
+  astContext?: string;
 }
 
 export interface AgentEvent {
@@ -37,6 +43,14 @@ export interface AgentEvent {
   status?: 'running' | 'completed' | 'failed' | 'tripped';
 }
 
+export interface ProxyMetrics {
+  totalRequests: number;
+  blockedRequests: number;
+  activeProvider: string;
+  upstreamUrl: string;
+  lastInterceptedTool?: string;
+}
+
 export interface CockpitTelemetry {
   sessionStartedAt: number;
   uptimeSeconds: number;
@@ -47,6 +61,7 @@ export interface CockpitTelemetry {
     input: number;
     output: number;
     total: number;
+    isEstimated: boolean;
   };
   totalCostUsd: number;
   burnRatePerMin: number;
@@ -57,4 +72,6 @@ export interface CockpitTelemetry {
   recentEvents: AgentEvent[];
   mutatedFiles: string[];
   securityAlerts: SecurityAlert[];
+  proxyMetrics?: ProxyMetrics;
+  activeChildPid?: number | null;
 }

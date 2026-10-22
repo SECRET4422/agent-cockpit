@@ -12,15 +12,20 @@ export declare class SessionStateManager {
     private breakerReason?;
     private subscribers;
     private simulationInterval;
+    private activeChildPid;
+    private proxyMetrics;
     ingestEvent(rawEvent: Partial<AgentEvent>): CockpitTelemetry;
+    recordRealTokens(input: number, output: number, model: string): void;
+    recordProxySuccess(upstreamUrl: string): void;
+    recordProxyBlocked(): void;
     tripBreaker(reason?: string): CockpitTelemetry;
     resetBreaker(): CockpitTelemetry;
+    isBreakerTripped(): boolean;
+    getBreakerReason(): string | undefined;
+    setActiveChildPid(pid: number | null): void;
     getTelemetry(): CockpitTelemetry;
     subscribe(callback: (data: CockpitTelemetry) => void): () => void;
     private notifySubscribers;
-    /**
-     * Starts a live flight simulation to showcase AgentCockpit's real-time detection
-     */
     runFlightSimulation(): void;
     startSimulation(): void;
     stopSimulation(): void;

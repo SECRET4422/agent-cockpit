@@ -1,4 +1,4 @@
-import { AgentEvent, CockpitTelemetry, SecurityAlert } from '../types.js';
+import { AgentEvent, CockpitTelemetry, ProxyMetrics } from '../types.js';
 import { LoopDetector } from './loop-detector.js';
 import { TokenTracker } from './token-tracker.js';
 import { SecurityGuard } from './security-guard.js';
@@ -16,10 +16,18 @@ export class SessionStateManager {
   private breakerReason?: string;
   private subscribers: ((data: CockpitTelemetry) => void)[] = [];
   private simulationInterval: NodeJS.Timeout | null = null;
+  private activeChildPid: number | null = null;
+
+  // Real Proxy Metrics
+  private proxyMetrics: ProxyMetrics = {
+    totalRequests: 0,
+    blockedRequests: 0,
+    activeProvider: 'OpenAI/Anthropic Gateway',
+    upstreamUrl: 'https://api.openai.com/v1',
+  };
 
   public ingestEvent(rawEvent: Partial<AgentEvent>): CockpitTelemetry {
     if (this.breakerTripped) {
-      // Breaker is active: do not accept file mutations or dangerous calls
       this.activeState = 'BREAKER_TRIPPED';
     }
 
@@ -38,12 +46,10 @@ export class SessionStateManager {
       status: rawEvent.status || 'completed',
     };
 
-    // Update active agent if provided
     if (rawEvent.agentName) {
       this.activeAgent = rawEvent.agentName;
     }
 
-    // Determine state
     if (this.breakerTripped) {
       this.activeState = 'BREAKER_TRIPPED';
     } else if (event.type === 'tool_call') {
@@ -56,26 +62,27 @@ export class SessionStateManager {
       this.activeState = 'IDLE';
     }
 
-    // Mutated files
     if (event.file) {
       this.mutatedFilesSet.add(event.file);
     }
 
-    // Tokens
+    // Token accounting: REAL tokens if present, or transparent char-ratio heuristic (NO Math.random!)
     if (event.tokens) {
       this.tokenTracker.recordUsage(event.tokens);
     } else if (event.type === 'tool_call') {
-      // Auto estimate moderate tokens per tool call
-      const input = 1200 + Math.floor(Math.random() * 800);
-      const output = 250 + Math.floor(Math.random() * 150);
-      const cost = this.tokenTracker.estimateCost(input, output);
-      this.tokenTracker.recordUsage({ input, output, costEstimate: cost });
+      const charCount = JSON.stringify(event.args || {}).length + (event.message || '').length;
+      const estimatedTokens = Math.max(10, Math.ceil(charCount / 4));
+      const cost = this.tokenTracker.estimateCost(estimatedTokens, Math.ceil(estimatedTokens / 4));
+      this.tokenTracker.recordUsage({
+        input: estimatedTokens,
+        output: Math.ceil(estimatedTokens / 4),
+        costEstimate: cost,
+        isEstimated: true,
+      });
     }
 
-    // Security check
     this.securityGuard.inspectEvent(event);
 
-    // Loop detection
     const loopAnalysis = this.loopDetector.recordCall(event);
     if (loopAnalysis.shouldTripBreaker && !this.breakerTripped) {
       this.tripBreaker(loopAnalysis.tripReason || 'Autonomous loop prevention triggered');
@@ -89,6 +96,29 @@ export class SessionStateManager {
     const telemetry = this.getTelemetry();
     this.notifySubscribers(telemetry);
     return telemetry;
+  }
+
+  public recordRealTokens(input: number, output: number, model: string): void {
+    const cost = this.tokenTracker.estimateCost(input, output, model);
+    this.tokenTracker.recordUsage({
+      input,
+      output,
+      costEstimate: cost,
+      isEstimated: false,
+      model,
+    });
+    this.notifySubscribers(this.getTelemetry());
+  }
+
+  public recordProxySuccess(upstreamUrl: string): void {
+    this.proxyMetrics.totalRequests++;
+    this.proxyMetrics.upstreamUrl = upstreamUrl;
+  }
+
+  public recordProxyBlocked(): void {
+    this.proxyMetrics.totalRequests++;
+    this.proxyMetrics.blockedRequests++;
+    this.notifySubscribers(this.getTelemetry());
   }
 
   public tripBreaker(reason = 'Manual Emergency Killswitch Engaged'): CockpitTelemetry {
@@ -134,6 +164,19 @@ export class SessionStateManager {
     return telemetry;
   }
 
+  public isBreakerTripped(): boolean {
+    return this.breakerTripped;
+  }
+
+  public getBreakerReason(): string | undefined {
+    return this.breakerReason;
+  }
+
+  public setActiveChildPid(pid: number | null): void {
+    this.activeChildPid = pid;
+    this.notifySubscribers(this.getTelemetry());
+  }
+
   public getTelemetry(): CockpitTelemetry {
     const loopAnalysis = this.loopDetector.analyze();
     const tokenSummary = this.tokenTracker.getSummary();
@@ -149,6 +192,7 @@ export class SessionStateManager {
         input: tokenSummary.inputTokens,
         output: tokenSummary.outputTokens,
         total: tokenSummary.totalTokens,
+        isEstimated: tokenSummary.isEstimated,
       },
       totalCostUsd: tokenSummary.totalCostUsd,
       burnRatePerMin: tokenSummary.burnRatePerMin,
@@ -159,6 +203,8 @@ export class SessionStateManager {
       recentEvents: this.recentEvents,
       mutatedFiles: Array.from(this.mutatedFilesSet),
       securityAlerts: this.securityGuard.getAlerts(),
+      proxyMetrics: this.proxyMetrics,
+      activeChildPid: this.activeChildPid,
     };
   }
 
@@ -179,9 +225,6 @@ export class SessionStateManager {
     }
   }
 
-  /**
-   * Starts a live flight simulation to showcase AgentCockpit's real-time detection
-   */
   public runFlightSimulation(): void {
     this.startSimulation();
   }
@@ -219,7 +262,6 @@ export class SessionStateManager {
         type: 'thought' as const,
         message: 'Running test runner to verify fix.',
       },
-      // Now initiate a rapid loop!
       {
         type: 'tool_call' as const,
         tool: 'run_command',

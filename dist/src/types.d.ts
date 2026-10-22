@@ -1,8 +1,11 @@
-export type EventType = 'thought' | 'tool_call' | 'tool_result' | 'file_mutation' | 'error' | 'alert' | 'breaker_tripped';
+export type EventType = 'thought' | 'tool_call' | 'tool_result' | 'file_mutation' | 'error' | 'alert' | 'breaker_tripped' | 'proxy_request' | 'proxy_blocked';
 export interface TokenUsage {
     input: number;
     output: number;
     costEstimate: number;
+    isEstimated?: boolean;
+    model?: string;
+    provider?: string;
 }
 export interface SecurityAlert {
     id: string;
@@ -11,6 +14,7 @@ export interface SecurityAlert {
     description: string;
     timestamp: number;
     target?: string;
+    astContext?: string;
 }
 export interface AgentEvent {
     id: string;
@@ -26,6 +30,13 @@ export interface AgentEvent {
     durationMs?: number;
     status?: 'running' | 'completed' | 'failed' | 'tripped';
 }
+export interface ProxyMetrics {
+    totalRequests: number;
+    blockedRequests: number;
+    activeProvider: string;
+    upstreamUrl: string;
+    lastInterceptedTool?: string;
+}
 export interface CockpitTelemetry {
     sessionStartedAt: number;
     uptimeSeconds: number;
@@ -36,6 +47,7 @@ export interface CockpitTelemetry {
         input: number;
         output: number;
         total: number;
+        isEstimated: boolean;
     };
     totalCostUsd: number;
     burnRatePerMin: number;
@@ -46,4 +58,6 @@ export interface CockpitTelemetry {
     recentEvents: AgentEvent[];
     mutatedFiles: string[];
     securityAlerts: SecurityAlert[];
+    proxyMetrics?: ProxyMetrics;
+    activeChildPid?: number | null;
 }

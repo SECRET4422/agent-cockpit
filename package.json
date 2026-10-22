@@ -1,7 +1,7 @@
 {
   "name": "@ssgk4422/agent-cockpit",
-  "version": "1.0.0",
-  "description": "🚀 Real-time visual telemetry HUD & circuit breaker for AI coding agents (Cursor, Claude Code, OpenMausBot, Aider)",
+  "version": "1.1.0",
+  "description": "🚀 Real-time visual telemetry HUD, AI reverse proxy gateway & circuit breaker for AI coding agents",
   "main": "dist/src/index.js",
   "type": "module",
   "bin": {
@@ -15,7 +15,7 @@
     "prepare": "tsc",
     "start": "node bin/agent-cockpit.js",
     "dev": "tsc -w",
-    "test": "node --test dist/tests/engine.test.js dist/tests/server.test.js"
+    "test": "node --test dist/tests/engine.test.js dist/tests/server.test.js dist/tests/proxy.test.js"
   },
   "repository": {
     "type": "git",
@@ -26,6 +26,7 @@
     "telemetry",
     "hud",
     "loopbreaker",
+    "reverse-proxy",
     "mcp",
     "cursor",
     "claude-code",
@@ -35,7 +36,11 @@
   ],
   "author": "Prabhakar Pal <vikashpal7888@gmail.com> (https://alphatech.studio)",
   "license": "MIT",
+  "dependencies": {
+    "acorn": "^8.14.0"
+  },
   "devDependencies": {
+    "@types/acorn": "^4.0.6",
     "@types/node": "^22.10.2",
     "typescript": "^5.7.2"
   }

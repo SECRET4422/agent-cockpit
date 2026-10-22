@@ -35,7 +35,6 @@ function playAlertSound(type = 'blip') {
   }
 }
 
-// Format duration
 function formatUptime(seconds) {
   const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
   const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
@@ -43,12 +42,10 @@ function formatUptime(seconds) {
   return `${h}:${m}:${s}`;
 }
 
-// Format numbers
 function formatNum(num) {
   return new Intl.NumberFormat().format(num);
 }
 
-// Initialize SSE Stream
 function connectStream() {
   const eventSource = new EventSource('/api/stream');
 
@@ -69,7 +66,6 @@ function connectStream() {
   };
 }
 
-// Update DOM components
 function updateDashboard(t) {
   const prevTripped = currentTelemetry ? currentTelemetry.breakerTripped : false;
   currentTelemetry = t;
@@ -79,9 +75,8 @@ function updateDashboard(t) {
 
   const statusBadge = document.getElementById('flightStatusBadge');
   const statusText = document.getElementById('flightStatusText');
-
   if (t.breakerTripped) {
-    statusBadge.className = 'flight-status-badge tripped';
+    statusBadge.className = 'flight-status-badge danger';
     statusText.textContent = 'BREAKER TRIPPED · FROZEN';
     if (!prevTripped) playAlertSound('trip');
   } else {
@@ -131,14 +126,17 @@ function updateDashboard(t) {
   document.getElementById('burnRateVal').textContent = `$${t.burnRatePerMin.toFixed(3)}`;
   document.getElementById('tokenRateFootnote').textContent = `Est. $${(t.burnRatePerMin * 60).toFixed(2)} / hr burn rate`;
 
-  // 5. Total Session Cost
+  // 5. Total Session Cost & Real Accounting
   document.getElementById('totalTokensVal').textContent = formatNum(t.totalTokens.total);
   document.getElementById('totalCostVal').textContent = `($${t.totalCostUsd.toFixed(4)})`;
-  document.getElementById('tokenSplitFootnote').textContent = `In: ${formatNum(t.totalTokens.input)} · Out: ${formatNum(t.totalTokens.output)}`;
+  const isEstimated = t.totalTokens.isEstimated;
+  document.getElementById('tokenSourceBadge').textContent = isEstimated ? 'ESTIMATED' : 'PROVIDER REAL';
+  document.getElementById('tokenSplitFootnote').textContent = `In: ${formatNum(t.totalTokens.input)} · Out: ${formatNum(t.totalTokens.output)} ${isEstimated ? '(Char ratio)' : '(API Exact)'}`;
 
-  // 6. Active Agent
-  document.getElementById('activeAgentName').textContent = t.activeAgent || 'Autonomous Agent';
-  document.getElementById('filesMutatedFootnote').textContent = `${t.mutatedFiles.length} files modified`;
+  // 6. Reverse Proxy Metrics
+  if (t.proxyMetrics) {
+    document.getElementById('proxyStatsFootnote').textContent = `${t.proxyMetrics.totalRequests} reqs · ${t.proxyMetrics.blockedRequests} blocked by breaker`;
+  }
 
   // 7. Event Counter
   document.getElementById('eventCounter').textContent = `${t.recentEvents.length} Events`;
@@ -178,6 +176,8 @@ function renderEventsFeed(events) {
     breaker_tripped: '🚨',
     alert: '⚠️',
     error: '❌',
+    proxy_request: '🌐',
+    proxy_blocked: '🛑',
   };
 
   feed.innerHTML = filtered
@@ -216,7 +216,6 @@ function renderRadarStack(events) {
     return;
   }
 
-  // Count consecutive duplicates
   stack.innerHTML = toolCalls
     .map((call, idx, arr) => {
       const isRepeat = idx > 0 && arr[idx - 1].tool === call.tool;
@@ -252,11 +251,16 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;');
 }
 
-// Event Listeners
 document.addEventListener('DOMContentLoaded', () => {
   connectStream();
 
-  // Filter Pills
+  // Dynamic Proxy snippet
+  const proxySnippet = document.getElementById('proxySnippet');
+  if (proxySnippet) {
+    proxySnippet.innerHTML = `<code>export OPENAI_BASE_URL="${window.location.origin}/v1"
+# Any agent pointed here will be intercepted, guarded, and token-tracked!</code>`;
+  }
+
   document.querySelectorAll('.filter-pills .pill').forEach((btn) => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.filter-pills .pill').forEach((p) => p.classList.remove('active'));
@@ -266,7 +270,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Simulate Flight Button
   const simBtn = document.getElementById('simBtn');
   const simText = document.getElementById('simBtnText');
   simBtn.addEventListener('click', async () => {
@@ -291,7 +294,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Emergency Killswitch Button
   const killswitchBtn = document.getElementById('killswitchBtn');
   killswitchBtn.addEventListener('click', async () => {
     playAlertSound('trip');
@@ -302,7 +304,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Reset Breaker Button
   const resetBreakerBtn = document.getElementById('resetBreakerBtn');
   resetBreakerBtn.addEventListener('click', async () => {
     playAlertSound('blip');
